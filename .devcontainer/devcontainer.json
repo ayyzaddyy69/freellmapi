@@ -1,0 +1,20 @@
+{
+  "name": "FreeLLMAPI (Codespaces)",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22-bookworm",
+  "hostRequirements": {
+    "cpus": 2,
+    "memory": "8gb"
+  },
+  "containerEnv": {
+    "FREELLMAPI_HOME": "/workspaces/.freellmapi"
+  },
+  "postCreateCommand": "bash .devcontainer/install-freellmapi.sh",
+  "postStartCommand": "bash .devcontainer/start-freellmapi.sh",
+  "forwardPorts": [3001],
+  "portsAttributes": {
+    "3001": {
+      "label": "FreeLLMAPI",
+      "onAutoForward": "notify"
+    }
+  }
+}
