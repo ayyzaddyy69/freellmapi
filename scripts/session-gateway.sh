@@ -15,7 +15,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DATA="${GATEWAY_DATA_DIR:-$HOME/.freellmapi-session}"
 PORT="${GATEWAY_PORT:-3001}"
-PLATFORMS="${GATEWAY_PLATFORMS:-groq nvidia openrouter}"
+PLATFORMS="${GATEWAY_PLATFORMS:-groq nvidia openrouter google zhipu}"
 URL="http://127.0.0.1:$PORT"
 PID_FILE="$DATA/server.pid"
 KEY_FILE="$DATA/unified-key"
