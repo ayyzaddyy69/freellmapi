@@ -55,10 +55,26 @@ if ! is_up; then
   # Local-only admin account, so the first-run setup window is closed.
   [ -f "$DATA/admin-password" ] || (umask 077; node -e "process.stdout.write(require('crypto').randomBytes(18).toString('base64url'))" >"$DATA/admin-password")
   (umask 077; GATEWAY_PLATFORMS="$PLATFORMS" ADMIN_PW="$(cat "$DATA/admin-password")" node -e '
-    const keys = process.env.GATEWAY_PLATFORMS.split(/\s+/).filter(Boolean)
+    // Google is reached through its OpenAI-compatible endpoint, because the
+    // session can only attach its key as "Authorization: Bearer" and the
+    // native Gemini API wants an x-goog-api-key header instead.
+    const GEMINI_MODELS = [
+      "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash",
+      "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3-flash-preview",
+      "gemini-flash-latest", "gemini-flash-lite-latest",
+      "gemma-4-31b-it", "gemma-4-26b-a4b-it",
+    ];
+    const names = process.env.GATEWAY_PLATFORMS.split(/\s+/).filter(Boolean);
+    const keys = names.filter(n => n !== "google")
       .map(platform => ({ platform, key: "proxy-injected", label: "session" }));
+    const customProviders = names.includes("google") ? [{
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+      apiKey: "proxy-injected",
+      label: "Gemini",
+      models: GEMINI_MODELS.map(model => ({ model, displayName: model, supportsTools: true })),
+    }] : [];
     const admin = { email: "session@localhost.local", password: process.env.ADMIN_PW };
-    process.stdout.write(JSON.stringify({ admin, keys }, null, 2));
+    process.stdout.write(JSON.stringify({ admin, keys, customProviders }, null, 2));
   ' >"$DATA/config.json")
 
   echo "Starting gateway..."

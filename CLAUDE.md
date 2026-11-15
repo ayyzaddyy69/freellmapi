@@ -36,8 +36,14 @@ key. Read the key from that file in commands; never print it.
   skipped. To enable
   another, save its key for its API host through the secure credential form,
   then start with `GATEWAY_PLATFORMS="groq nvidia openrouter google zhipu <name>"`.
-- Google reads its key from the `x-goog-api-key` header, which the credential
-  form cannot save; that secret has to be added in the environment settings.
+- Google is wired in as a custom provider on its OpenAI-compatible endpoint
+  (`generativelanguage.googleapis.com/v1beta/openai`), because the saved key
+  is attached as `Authorization: Bearer` and the native Gemini API wants an
+  `x-goog-api-key` header. The Gemini models it exposes are listed in
+  `scripts/session-gateway.sh`; they route as platform `custom`.
+- Some Gemini and Gemma models take longer than 30 seconds to start
+  answering and fail with a 502 from the session's network layer. Retry, or
+  use `gemini-3.5-flash`, `gemini-3.6-flash` or `gemini-3.5-flash-lite`.
 - In the Default environment the provider hosts are blocked, so the gateway
   starts but every model call fails.
 
