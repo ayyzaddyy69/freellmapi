@@ -10,6 +10,16 @@ SECRETS="$HOME_DIR/secrets.env"
 mkdir -p "$HOME_DIR"
 
 ready() { curl -sf -o /dev/null http://localhost:3001/api/auth/status; }
+# Our instance always has an admin account, so "needsSetup":true means some
+# other copy (usually `npm run dev`, which uses a separate empty database)
+# holds port 3001. Stop it so the real one can start.
+foreign_instance() { curl -sf http://localhost:3001/api/auth/status | grep -q '"needsSetup":true'; }
+if foreign_instance; then
+  echo "Another FreeLLMAPI copy (dev mode, empty database) is using port 3001; stopping it."
+  pkill -f "tsx watch" || true
+  pkill -f "bin/vite" || true
+  sleep 3
+fi
 
 # Build if the install step did not finish (e.g. it was interrupted).
 if [ ! -f server/dist/index.js ]; then
