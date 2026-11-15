@@ -526,6 +526,21 @@ export interface ScoreInputs {
   rateLimit: number;     // [floor,1] multiplier
 }
 
+// ── Guardrail: live load ────────────────────────────────────────────────────
+// Demand-side counterpart to the quota guardrails: the more requests a model is
+// ALREADY serving right now, the less attractive it is for the next one, so a
+// burst spreads across the pool instead of piling onto the single fastest
+// model until it 429s. 1 when idle, 1/(1 + 0.35·n) otherwise, floored so a busy
+// model is demoted but never excluded (it can still win when everything else is
+// also busy or failing).
+export const LOAD_PENALTY_PER_INFLIGHT = 0.35;
+export const LOAD_FACTOR_FLOOR = 0.2;
+
+export function loadFactor(inFlight: number): number {
+  if (!Number.isFinite(inFlight) || inFlight <= 0) return 1;
+  return Math.max(LOAD_FACTOR_FLOOR, 1 / (1 + LOAD_PENALTY_PER_INFLIGHT * inFlight));
+}
+
 /**
  * Convex base (∈[0,1]) × the two guardrail multipliers. The weights are assumed
  * to sum to 1; if a caller passes a non-normalized vector we renormalize so the

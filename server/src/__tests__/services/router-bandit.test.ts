@@ -76,6 +76,7 @@ function pickCounts(runs: number): Record<string, number> {
   for (let i = 0; i < runs; i++) {
     const r = routeRequest(100);
     counts[r.modelId] = (counts[r.modelId] ?? 0) + 1;
+    r.release?.(); // a finished request frees its in-flight lease (live-load guardrail)
   }
   return counts;
 }
@@ -157,6 +158,7 @@ describe('bandit router', () => {
     for (let i = 0; i < 2000; i++) {
       const r = routeRequest(100, undefined, undefined, /*requireVision=*/ true);
       counts[r.modelId] = (counts[r.modelId] ?? 0) + 1;
+      r.release?.();
     }
     // The loop gate already guarantees this half; the pool filter is what the
     // vision-c bound below actually pins down.

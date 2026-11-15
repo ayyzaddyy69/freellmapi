@@ -9,7 +9,7 @@ import type {
   ChatToolChoice,
   ChatContentBlock,
 } from '@freellmapi/shared/types.js';
-import { routeRequest, resolveModelGroupCandidates, resolveRoutingChain, resolveStickyPreference, routingReserveTokens, failureAttributionFor, type RouteResult, type ResolvedChain, type ChainRow } from '../services/router.js';
+import { routeRequest, resolveModelGroupCandidates, resolveTierCandidates, resolveRoutingChain, resolveStickyPreference, routingReserveTokens, failureAttributionFor, type RouteResult, type ResolvedChain, type ChainRow } from '../services/router.js';
 import { getSetting } from '../db/index.js';
 import { resolveAuth, prependSystemPrompt, type ResolvedAuth } from '../lib/system-prompt.js';
 import { contentToString, estimateInputTokens } from '../lib/content.js';
@@ -673,7 +673,7 @@ export async function handleMessages(req: Request, res: Response): Promise<void>
       }
     }
   } else if (resolved.tierDbIds && resolved.tierDbIds.length > 0) {
-    const chain = resolveModelGroupCandidates(resolved.tierDbIds);
+    const chain = resolveTierCandidates(resolved.tierDbIds);
     if (chain.length > 0) {
       groupChain = chain;
       // Scoped per tier, not per model: a session on tier:sonnet keeps its

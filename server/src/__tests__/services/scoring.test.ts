@@ -6,6 +6,7 @@ import {
   isPeakHours, peakAdjustedWeights, hourInTimezone, isValidPeakHour, isValidTimezone,
   isPeakExemptStrategy, DEFAULT_PEAK_HOURS, PEAK_SPEED_TO_RELIABILITY,
   taskAdjustedWeights, isTaskExemptStrategy, TASK_WEIGHT_SHARE,
+  loadFactor, LOAD_FACTOR_FLOOR,
   type PeakHoursConfig,
 } from '../../services/scoring.js';
 
@@ -413,5 +414,20 @@ describe('scoring: task-type weight bias (#1127)', () => {
     expect(taskAdjustedWeights(noSpeed, 'code', 'balanced')).toEqual({ weights: noSpeed, adjusted: false });
     const noIntel = { reliability: 0.5, speed: 0.5, intelligence: 0 };
     expect(taskAdjustedWeights(noIntel, 'chat', 'balanced')).toEqual({ weights: noIntel, adjusted: false });
+  });
+});
+
+describe('scoring: live load guardrail', () => {
+  it('is neutral when idle and demotes monotonically with concurrency', () => {
+    expect(loadFactor(0)).toBe(1);
+    expect(loadFactor(-3)).toBe(1);
+    expect(loadFactor(1)).toBeLessThan(1);
+    expect(loadFactor(2)).toBeLessThan(loadFactor(1));
+    expect(loadFactor(4)).toBeLessThan(loadFactor(2));
+  });
+
+  it('floors so a busy model is demoted, never excluded', () => {
+    expect(loadFactor(1000)).toBe(LOAD_FACTOR_FLOOR);
+    expect(loadFactor(Number.NaN)).toBe(1);
   });
 });

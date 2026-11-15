@@ -15,13 +15,14 @@ import {
   releaseLease,
   getSoonestCooldownExpiry,
   modelWindowUsedFraction,
+  inFlightForModel,
 } from './ratelimit.js';
 import {
   BANDIT_PRESETS, DEFAULT_STRATEGY, type PresetStrategy, type RoutingStrategy, type RoutingWeights,
   type KeySelectionStrategy,
   reliabilityPosterior, expectedReliability, sampleBeta,
   speedScore, intelligenceScore, intelligenceComposite, headroomFactor, rateWindowHeadroomFactor,
-  rateLimitFactor, combineScore,
+  rateLimitFactor, combineScore, loadFactor,
   peakAdjustedWeights, taskAdjustedWeights, TASK_WEIGHT_SHARE, isValidPeakHour, isValidTimezone,
   DEFAULT_PEAK_HOURS, type PeakHoursConfig,
   observedSpeedRank, TIMEOUT_LATENCY_CAP_MS,
@@ -1159,8 +1160,11 @@ function scoreChainEntry(
   // Per-model env overrides (#738) scale the final score so a slow or
   // poor-quality model is demoted without being disabled outright — a manual
   // 'priority' chain can still select it.
+  // Live load: demote a model that is already serving concurrent requests so
+  // bursts spread across the pool rather than stacking on the fastest model.
+  const load = loadFactor(inFlightForModel(entry.platform, entry.model_id));
   const score = applyModelWeightOverride(
-    combineScore({ reliability, speed, intelligence, headroom, rateLimit: rl }, weights),
+    combineScore({ reliability, speed, intelligence, headroom, rateLimit: rl }, weights) * load,
     entry.model_id,
   );
   return { axes: { reliability, speed, intelligence }, headroom, rateLimit: rl, score };
@@ -1985,9 +1989,11 @@ export function resolveModelGroupCandidates(
    * which is what every other caller wants.
    */
   demotedDbIds?: ReadonlySet<number>,
+  /** Rank with this strategy instead of the instance-wide one (tier aliases). */
+  strategyOverride?: RoutingStrategy,
 ): ChainRow[] {
   const db = getDb();
-  const strategy = effectiveRoutingStrategy();
+  const strategy = strategyOverride ?? effectiveRoutingStrategy();
   if (strategy !== 'priority') refreshStatsCache(db);
 
   const activeProfileId = getActiveProfileId(db);
@@ -2024,6 +2030,16 @@ export function resolveModelGroupCandidates(
     rows.push(row);
   }
   return orderChain(rows, strategy);
+}
+
+/**
+ * Chain for a Claude-family tier alias (tier:pro|mid|normal). Ranked with the
+ * speed-led `fastest` preset regardless of the instance strategy, so within a
+ * tier the model that is fastest, reliable and least loaded right now wins.
+ * `auto` and pinned models keep the instance-wide strategy.
+ */
+export function resolveTierCandidates(tierDbIds: number[]): ChainRow[] {
+  return resolveModelGroupCandidates(tierDbIds, undefined, 'fastest');
 }
 
 // A panel candidate surfaced to the fusion layer: enough to pick a diverse set
